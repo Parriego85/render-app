@@ -31,6 +31,12 @@ def get_dem():
     style = str(request.args['style'])
     temp = str(request.args['aggregate'])
     
+    # Validar que la diferencia entre start_date y end_date sea menor o igual a 10 días
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+    end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
+    if (end_datetime - start_datetime).days > 10:
+        return "Error: The difference between start_date and end_date must be less than or equal to 10 days."
+    
     # Cargamos url de api con los parametros que queremos
     url = "https://apidatos.ree.es/en/datos/demanda/evolucion"
     params = {
