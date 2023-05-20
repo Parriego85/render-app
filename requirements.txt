@@ -1,0 +1,9 @@
+Flask
+Gunicorn
+psycopg2
+io
+base64
+requests
+matplotlib
+datetime
+pandas
