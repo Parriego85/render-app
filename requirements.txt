@@ -1,7 +1,6 @@
 Flask
 Gunicorn
 psycopg2
-base64
 requests
 matplotlib
 datetime
