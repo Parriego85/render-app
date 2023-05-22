@@ -4,9 +4,12 @@ import base64
 from os import remove
 import psycopg2
 import requests
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as ticker
+from matplotlib.ticker import MultipleLocator
 from datetime import datetime
 import pandas as pd
 
@@ -29,13 +32,18 @@ def get_dem():
     start_date = str(request.args['start_date'])
     end_date = str(request.args['end_date'])
     style = str(request.args['style'])
-    temp = str(request.args['aggregate'])
-    
-    # Validar que la diferencia entre start_date y end_date sea menor o igual a 10 días
+    orientacion = str(request.args['orientacion'])
+    agregate = str(request.args['aggregate'])
+
     start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
     end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
-    if (end_datetime - start_datetime).days > 10:
-        return "Error: The difference between start_date and end_date must be less than or equal to 10 days."
+    if (end_datetime - start_datetime).days > 30:
+        return "Error: Rango de fechas demasiado alto, máximo 30 dias."
+    
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+    end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
+    if start_datetime.year != end_datetime.year or start_datetime.month != end_datetime.month:
+        return "Error: Consulta disponible solo con dias del mismo mes"
     
     # Cargamos url de api con los parametros que queremos
     url = "https://apidatos.ree.es/en/datos/demanda/evolucion"
@@ -52,21 +60,41 @@ def get_dem():
     values = data['included'][0]['attributes']['values']
     value_list = [value['value'] for value in values]
     datetime_list = [datetime.strptime(value['datetime'], '%Y-%m-%dT%H:%M:%S.%f%z') for value in values]
-        
-    if style not in ["line", "bar"]:
-        return "Error: Invalid 'style' parameter, must be 'line' or 'bar'"
+
+    if agregate == 'hours':
+        date_list = [dt.strftime('%H') for dt in datetime_list]
+        xvalue = "Hours"
+    elif agregate == 'days':
+        date_list = [dt.strftime('%d') for dt in datetime_list]
+        xvalue = "Days"
+    elif agregate == 'months':
+        date_list = [dt.strftime('%m') for dt in datetime_list]
+        xvalue = "Months"
 
     if style == "line":
-        plt.plot(datetime_list, value_list)
+        if orientacion == 'vertical':
+            plt.plot(date_list, value_list)
+            plt.xlabel(xvalue)
+            plt.ylabel('Value Demand')
+        else:
+            plt.plot(value_list,date_list)
+            locator = MultipleLocator(base=1000)
+            plt.gca().xaxis.set_major_locator(locator)
+            plt.ylabel(xvalue)
+            plt.xlabel('Value Demand')
     elif style == 'bar':
-        plt.bar(datetime_list, value_list)
+        if orientacion == 'vertical':
+            plt.bar(date_list, value_list)
+            plt.xlabel(xvalue)
+            plt.ylabel('Value Demand')
+        else:
+            plt.barh(date_list,value_list)
+            locator = MultipleLocator(base=1000)
+            plt.gca().xaxis.set_major_locator(locator)
+            plt.ylabel(xvalue)
+            plt.xlabel('Value Demand')
     
     # Formateamos para mostrar las horas en el X
-    temp = int(temp)
-    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(base=temp/24)) 
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-    plt.xlabel('Hours')
-    plt.ylabel('Value Demand')
     plt.title(f'Demands in range of {start_date} / {end_date}')
     plt.xticks(rotation=45)
     plt.tight_layout()
